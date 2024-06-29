@@ -1,0 +1,118 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  My CDK Project Stack converted to SAM template
+
+Globals:
+  Function:
+    Timeout: 5
+    MemorySize: 128
+    Runtime: python3.12
+
+Mappings:
+  EnvironmentBuckets:
+    dev:
+      SourceBucket: dev-s3-copy-source-bucket
+      TargetBucket: dev-s3-copy-target-bucket
+    prod:
+      SourceBucket: prod-s3-copy-source-bucket
+      TargetBucket: prod-s3-copy-target-bucket
+
+Resources:
+  SourceBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !FindInMap [EnvironmentBuckets, !Ref EnvType, SourceBucket]
+
+  TargetBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !FindInMap [EnvironmentBuckets, !Ref EnvType, TargetBucket]
+
+  S3CopyLambdaLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: s3-copy-lambda-layer
+      Description: Python dependencies
+      ContentUri: layer/
+      CompatibleRuntimes:
+        - python3.12
+
+  S3CopyLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+            Action: "sts:AssumeRole"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: "S3CrudPolicy"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "s3:*"
+                Resource: 
+                  - !Sub "arn:aws:s3:::${SourceBucket}/*"
+                  - !Sub "arn:aws:s3:::${TargetBucket}/*"
+
+  S3CopyLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Handler: s3copy.handler
+      CodeUri: handler/
+      Handler: s3copy.handler
+      Layers:
+        - !Ref S3CopyLambdaLayer
+      Environment:
+        Variables:
+          SOURCE_BUCKET: !Ref SourceBucket
+          TARGET_BUCKET: !Ref TargetBucket
+      Role: !GetAtt S3CopyLambdaRole.Arn
+      FunctionName: !Sub "s3-copy-lambda-${EnvType}"
+
+  S3CopyLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/s3-copy-lambda-${EnvType}"
+      RetentionInDays: 7
+
+  S3ObjectCreatedPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref S3CopyLambda
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn: !GetAtt SourceBucket.Arn
+
+  # コメントアウトされた部分
+  # S3ObjectCreatedEvent:
+  #   Type: Custom::S3Event
+  #   Properties:
+  #     ServiceToken: !GetAtt S3CopyLambda.Arn
+  #     Bucket: !Ref SourceBucket
+  #     NotificationConfiguration:
+  #       LambdaFunctionConfigurations:
+  #         - Events:
+  #             - s3:ObjectCreated:*
+  #           Filter:
+  #             Key:
+  #               FilterRules:
+  #                 - Name: suffix
+  #                   Value: .json
+  #           LambdaFunctionArn: !GetAtt S3CopyLambda.Arn
+
+Parameters:
+  EnvType:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - prod
+    Description: Environment type

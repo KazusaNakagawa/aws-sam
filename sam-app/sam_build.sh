@@ -1,0 +1,1 @@
+DOCKER_HOST=unix://$HOME/.rd/docker.sock sam build --use-container
