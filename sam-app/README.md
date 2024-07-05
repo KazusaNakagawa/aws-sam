@@ -39,9 +39,14 @@ To build and deploy your application for the first time, run the following in yo
 ## build & deploy
 
 ```bash
-./sam_build.sh
+# sam build
+./build.sh
 
-./dev_sam_deploy.sh
+# sam deploy
+./deploy.sh
+
+# setup s3 trigger: To enable trigger configuration on existing buckets. In sam, it was necessary to define s3 in the same template, so a breakthrough
+./shell/setup_s3_trigger.sh <env> <bucket_name>
 ```
 
 ### Cleanup
@@ -49,7 +54,7 @@ To build and deploy your application for the first time, run the following in yo
 To delete the sample application that you created, use the AWS CLI. Assuming you used your project name for the stack name, you can run the following:
 
 ```bash
-sam delete --stack-name "<Env>-sam-app"
+sam delete --stack-name <stack-name>
 ```
 
 ## Resources

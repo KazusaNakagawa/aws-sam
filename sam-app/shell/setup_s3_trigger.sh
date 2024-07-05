@@ -4,7 +4,7 @@
 # Example: ./setup_s3_trigger.sh dev input-bucket
 
 # Check if environment argument is provided
-if [ -z "$1" ];then
+if [ -z "$1" ]; then
   echo "Environment argument is required."
   echo "Usage: $0 <env> <input_bucket_name>" 
   exit 1
@@ -15,7 +15,7 @@ INPUT_BUCKET_NAME=$2
 
 LAMBDA_EVENTS=(
   "s3-copy-lambda-${ENV}" "${INPUT_BUCKET_NAME}-${ENV}" "input/" ".json"
-  "s3-copy-lambda2-${ENV}" "${INPUT_BUCKET_NAME}-${ENV}" "input/prefix/" ".tsv.gz"
+  "s3-copy-lambda2-${ENV}" "${INPUT_BUCKET_NAME}-${ENV}" "input/prefix/" ""
 )
 
 # 配列の要素数
@@ -53,7 +53,8 @@ for ((i=0; i<$NUM_ELEMENTS; i+=$ELEMENTS_PER_TUPLE)); do
   fi
 
   # Create S3 event notification configuration
-  S3_NOTIFICATION_CONFIGURATION=$(cat <<EOF
+  if [ -n "$S3_SUFFIX" ]; then
+    S3_NOTIFICATION_CONFIGURATION=$(cat <<EOF
 {
   "LambdaFunctionConfigurations": [
     {
@@ -71,7 +72,27 @@ for ((i=0; i<$NUM_ELEMENTS; i+=$ELEMENTS_PER_TUPLE)); do
   ]
 }
 EOF
-)
+    )
+  else
+    S3_NOTIFICATION_CONFIGURATION=$(cat <<EOF
+{
+  "LambdaFunctionConfigurations": [
+    {
+      "LambdaFunctionArn": "${LAMBDA_FUNCTION_ARN}",
+      "Events": ["s3:ObjectCreated:*"],
+      "Filter": {
+        "Key": {
+          "FilterRules": [
+            {"Name": "prefix", "Value": "${S3_PREFIX}"}
+          ]
+        }
+      }
+    }
+  ]
+}
+EOF
+    )
+  fi
 
   echo "S3 Notification Configuration: ${S3_NOTIFICATION_CONFIGURATION}"
 
