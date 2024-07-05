@@ -3,6 +3,11 @@ Transform: AWS::Serverless-2016-10-31
 Description: >
   My CDK Project Stack converted to SAM template
 
+Globals:
+  Function:
+    Timeout: 5
+    MemorySize: 128
+    Runtime: python3.9
 
 Parameters:
   EnvType:
@@ -11,89 +16,64 @@ Parameters:
     AllowedValues:
       - dev
       - prod
-    Description: Environment type
-  SourceBucketName:
-    Type: String
-    Default: "s3-copy-source-bucket-${EnvType}"
-    Description: Source bucket name
-  TargetBucketName:
-    Type: String
-    Default: "s3-copy-target-bucket-${EnvType}"
-    Description: Source bucket name
-
-Globals:
-  Function:
-    Timeout: 5
-    MemorySize: 128
-    Runtime: python3.9
-
-# Mappings:
-#   EnvironmentBuckets:
-#     dev:
-#       TargetBucket: dev-s3-copy-target-bucket
-#     prod:
-#       TargetBucket: prod-s3-copy-target-bucket
 
 Resources:
-
-  S3CopyLambdaSourceBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Sub SourceBucketName
-
-  TargetBucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      BucketName: !Ref TargetBucketName
-
   S3CopyLambdaLayer:
     Type: AWS::Serverless::LayerVersion
     Properties:
       LayerName: s3-copy-lambda-layer
-      Description: Python dependencies
       ContentUri: layer/
       CompatibleRuntimes:
         - python3.9
- 
+
+  S3CopyLambdaFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: S3CopyLambdaFunctionPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:CopyObject
+                Resource:
+                  - !Sub "arn:aws:s3:::s3-copy-source-bucket-${EnvType}/*"
+                  - !Sub "arn:aws:s3:::s3-copy-target-bucket-${EnvType}/*"
+
   S3CopyLambdaFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Handler: s3copy.handler
       CodeUri: handler/
       Handler: s3copy.handler
       Layers:
         - !Ref S3CopyLambdaLayer
-      # Environment:
-      #   Variables:
-      #     SOURCE_BUCKET: !Ref S3CopyLambdaSourceBucket
-      #     TARGET_BUCKET: !Ref TargetBucket
       FunctionName: !Sub "s3-copy-lambda-${EnvType}"
-      Architectures:
-        - x86_64
-      Events:
-        S3UploadEvent:
-          Type: S3
-          Properties:
-            Bucket: !Ref TargetBucket
-            Events: s3:ObjectCreated:*
-            Filter:
-              S3Key:
-                Rules:
-                  - Name: prefix
-                    Value: input/
-                  - Name: suffix
-                    Value: .json
+      Role: !GetAtt S3CopyLambdaFunctionRole.Arn
+      Environment:
+        Variables:
+          SOURCE_BUCKET: !Sub "s3-copy-source-bucket-${EnvType}"
+          TARGET_BUCKET: !Sub "s3-copy-target-bucket-${EnvType}"
 
-Outputs:
-  # S3CopyLambdaSourceBucketArn:
-  #   Description: "S3 Copy Lambda Source Bucket ARN"
-  #   Value: !GetAtt S3CopyLambdaSourceBucket.Arn
-  TargetBucketArn:
-    Description: "Target Bucket ARN"
-    Value: !GetAtt TargetBucket.Arn
-  S3CopyLambdaFunction:
-    Description: "S3 Copy Lambda ARN"
-    Value: !GetAtt S3CopyLambdaFunction.Arn
-  S3CopyLambdaFunctionIamRole:
-    Description: "S3 Copy Lambda IAM Role ARN"
-    Value: !GetAtt S3CopyLambdaFunctionRole.Arn
+# Outputs:
+#   S3CopyLambdaSourceBucketArn:
+#     Description: "S3 Copy Lambda Source Bucket ARN"
+#     Value: !GetAtt S3CopyLambdaSourceBucket.Arn
+#   TargetBucketArn:
+#     Description: "Target Bucket ARN"
+#     Value: !GetAtt TargetBucket.Arn
+#   S3CopyLambdaFunction:
+#     Description: "S3 Copy Lambda ARN"
+#     Value: !GetAtt S3CopyLambdaFunction.Arn
+#   S3CopyLambdaFunctionIamRole:
+#     Description: "S3 Copy Lambda IAM Role ARN"
+#     Value: !GetAtt S3CopyLambdaFunctionRole.Arn

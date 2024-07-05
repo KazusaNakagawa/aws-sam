@@ -1,1 +1,0 @@
-sam deploy --config-file dev_samconfig.toml

@@ -39,10 +39,6 @@ To build and deploy your application for the first time, run the following in yo
 ## build & deploy
 
 ```bash
-# layer
-mkdir -p layer/python
-pip install requirements.txt -t layer/python
-
 ./sam_build.sh
 
 ./dev_sam_deploy.sh
