@@ -55,7 +55,7 @@ Resources:
                   - logs:CreateLogStream
                   - logs:PutLogEvents
                 Resource: 
-                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/s3-copy-lambda-${EnvType}:*"
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/s3-copy-lambda*:*"
 
   S3CopyLambdaFunction:
     Type: AWS::Serverless::Function
@@ -65,6 +65,20 @@ Resources:
       Layers:
         - !Ref S3CopyLambdaLayer
       FunctionName: !Sub "s3-copy-lambda-${EnvType}"
+      Role: !GetAtt S3CopyLambdaFunctionRole.Arn
+      Environment:
+        Variables:
+          SOURCE_BUCKET: !Sub "s3-copy-source-bucket-${EnvType}"
+          TARGET_BUCKET: !Sub "s3-copy-target-bucket-${EnvType}"
+
+  S3CopyLambda2Function:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: handler/
+      Handler: s3copy.handler
+      Layers:
+        - !Ref S3CopyLambdaLayer
+      FunctionName: !Sub "s3-copy-lambda2-${EnvType}"
       Role: !GetAtt S3CopyLambdaFunctionRole.Arn
       Environment:
         Variables:

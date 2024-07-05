@@ -1,5 +1,5 @@
 version = 0.1
-[default.deploy.parameters]
+[dev.deploy.parameters]
 stack_name = "sam-app"
 resolve_s3 = true
 s3_prefix = "sam-app"

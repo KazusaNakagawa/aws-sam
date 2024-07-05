@@ -19,14 +19,14 @@ def get_target_key(prefix: str):
 
 def handler(event, context):
     # 環境変数からバケット名を取得
-    source_bucket = os.environ["SOURCE_BUCKET"]
     target_bucket = os.environ["TARGET_BUCKET"]
 
     # イベントからS3オブジェクト情報を取得
+    source_bucket = event["Records"][0]["s3"]["bucket"]["name"]
     source_key = event["Records"][0]["s3"]["object"]["key"]
-    prefix = 'test1'
+    prefix = source_key.split("/")[-1].split(".")[0]
 
-    if source_key.endswith(".json"):
+    if source_key.endswith(".json") or source_key.endswith(".tsv.gz"):
         try:
             copy_source = {"Bucket": source_bucket, "Key": source_key}
             target_key = f"{get_target_key(prefix)}/{source_key}"
@@ -38,5 +38,5 @@ def handler(event, context):
             print(f"Error copying {source_key} from {source_bucket} to {target_bucket}")
             return {"statusCode": 500, "body": json.dumps(f"Error copying {source_key}")}
     else:
-        print(f"{source_key} is not a .json file. No action taken.")
+        print(f"{source_key} is not a .json or .tsv.gz file. No action taken.")
         return {"statusCode": 200, "body": json.dumps(f"{source_key} is not a .json file. No action taken.")}
