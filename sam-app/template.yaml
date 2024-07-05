@@ -49,6 +49,13 @@ Resources:
                 Resource:
                   - !Sub "arn:aws:s3:::s3-copy-source-bucket-${EnvType}/*"
                   - !Sub "arn:aws:s3:::s3-copy-target-bucket-${EnvType}/*"
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: 
+                  - !Sub "arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/s3-copy-lambda-${EnvType}:*"
 
   S3CopyLambdaFunction:
     Type: AWS::Serverless::Function
@@ -63,17 +70,3 @@ Resources:
         Variables:
           SOURCE_BUCKET: !Sub "s3-copy-source-bucket-${EnvType}"
           TARGET_BUCKET: !Sub "s3-copy-target-bucket-${EnvType}"
-
-# Outputs:
-#   S3CopyLambdaSourceBucketArn:
-#     Description: "S3 Copy Lambda Source Bucket ARN"
-#     Value: !GetAtt S3CopyLambdaSourceBucket.Arn
-#   TargetBucketArn:
-#     Description: "Target Bucket ARN"
-#     Value: !GetAtt TargetBucket.Arn
-#   S3CopyLambdaFunction:
-#     Description: "S3 Copy Lambda ARN"
-#     Value: !GetAtt S3CopyLambdaFunction.Arn
-#   S3CopyLambdaFunctionIamRole:
-#     Description: "S3 Copy Lambda IAM Role ARN"
-#     Value: !GetAtt S3CopyLambdaFunctionRole.Arn

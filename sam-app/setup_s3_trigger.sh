@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Usage: ./setup_s3_trigger.sh <env>
-# Example: ./setup_s3_trigger.sh dev
+# Usage: ./setup_s3_trigger.sh <env> <s3_bucket_name> <s3_prefix> <s3_suffix>
+# Example: ./setup_s3_trigger.sh dev s3-copy-source-bucket-dev input/ .json
 
 # Check if environment argument is provided
 if [ -z "$1" ]; then
@@ -12,12 +12,12 @@ fi
 
 # Assign environment argument to variable
 ENV=$1
-# S3_BUCKET_NAME=$2
-S3_BUCKET_NAME="s3-copy-source-bucket-dev"
-# S3_PREFIX=$3
-S3_PREFIX="input/"
-# S3_SUFFIX=$4
-S3_SUFFIX=".json"
+S3_BUCKET_NAME=$2
+# S3_BUCKET_NAME="s3-copy-source-bucket-dev"
+S3_PREFIX=$3
+# S3_PREFIX="input/"
+S3_SUFFIX=$4
+# S3_SUFFIX=".json"
 
 # Define Lambda function name
 LAMBDA_FUNCTION_NAME="s3-copy-lambda-${ENV}"
@@ -32,8 +32,11 @@ fi
 
 echo "Lambda Function ARN: ${LAMBDA_FUNCTION_ARN}"
 
+# Generate a unique statement ID using timestamp
+STATEMENT_ID="s3invoke-$(date +%s)"
+
 # Add permission for S3 to invoke the Lambda function
-aws lambda add-permission --function-name ${LAMBDA_FUNCTION_NAME} --principal s3.amazonaws.com --statement-id s3invoke --action "lambda:InvokeFunction" --source-arn arn:aws:s3:::${S3_BUCKET_NAME} --source-account $(aws sts get-caller-identity --query Account --output text)
+aws lambda add-permission --function-name ${LAMBDA_FUNCTION_NAME} --principal s3.amazonaws.com --statement-id ${STATEMENT_ID} --action "lambda:InvokeFunction" --source-arn arn:aws:s3:::${S3_BUCKET_NAME} --source-account $(aws sts get-caller-identity --query Account --output text)
 
 if [ $? -ne 0 ]; then
   echo "Failed to add permission to Lambda function for S3 invocation."
