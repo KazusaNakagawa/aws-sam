@@ -45,7 +45,12 @@ for ((i=0; i<$NUM_ELEMENTS; i+=$ELEMENTS_PER_TUPLE)); do
   STATEMENT_ID="s3invoke-$(date +%s)"
 
   # Add permission for S3 to invoke the Lambda function
-  aws lambda add-permission --function-name ${LAMBDA_FUNCTION_NAME} --principal s3.amazonaws.com --statement-id ${STATEMENT_ID} --action "lambda:InvokeFunction" --source-arn arn:aws:s3:::${S3_BUCKET_NAME} --source-account $(aws sts get-caller-identity --query Account --output text)
+  aws lambda add-permission --function-name ${LAMBDA_FUNCTION_NAME} \
+    --principal s3.amazonaws.com \
+    --statement-id ${STATEMENT_ID} \
+    --action "lambda:InvokeFunction" \
+    --source-arn arn:aws:s3:::${S3_BUCKET_NAME} \
+    --source-account $(aws sts get-caller-identity --query Account --output text)
 
   if [ $? -ne 0 ]; then
     echo "Failed to add permission to Lambda function for S3 invocation."
