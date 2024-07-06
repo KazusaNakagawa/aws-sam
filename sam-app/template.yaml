@@ -68,7 +68,6 @@ Resources:
       Role: !GetAtt S3CopyLambdaFunctionRole.Arn
       Environment:
         Variables:
-          SOURCE_BUCKET: !Sub "s3-copy-source-bucket-${EnvType}"
           TARGET_BUCKET: !Sub "s3-copy-target-bucket-${EnvType}"
 
   S3CopyLambda2Function:
@@ -82,5 +81,4 @@ Resources:
       Role: !GetAtt S3CopyLambdaFunctionRole.Arn
       Environment:
         Variables:
-          SOURCE_BUCKET: !Sub "s3-copy-source-bucket-${EnvType}"
           TARGET_BUCKET: !Sub "s3-copy-target-bucket-${EnvType}"

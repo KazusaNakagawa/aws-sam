@@ -7,3 +7,21 @@ region = "ap-northeast-1"
 capabilities = "CAPABILITY_IAM"
 parameter_overrides = "EnvType=\"dev\""
 image_repositories = []
+
+[prd.deploy.parameters]
+stack_name = "sam-app-prd"
+resolve_s3 = true
+s3_prefix = "sam-app-prd"
+region = "ap-northeast-1"
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "EnvType=\"prd\""
+image_repositories = []
+
+[prod.deploy.parameters]
+stack_name = "sam-app-prod"
+resolve_s3 = true
+s3_prefix = "sam-app-prod"
+region = "ap-northeast-1"
+capabilities = "CAPABILITY_IAM"
+parameter_overrides = "EnvType=\"prod\""
+image_repositories = []
