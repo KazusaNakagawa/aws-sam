@@ -9,6 +9,14 @@ def get_lambda_arn(lambda_client, function_name):
     return response["Configuration"]["FunctionArn"]
 
 
+def remove_existing_permission(lambda_client, function_name, statement_id):
+    try:
+        lambda_client.remove_permission(FunctionName=function_name, StatementId=statement_id)
+        print(f"Removed existing permission with StatementId {statement_id}")
+    except lambda_client.exceptions.ResourceNotFoundException:
+        print(f"No existing permission with StatementId {statement_id} found")
+
+
 def add_lambda_permission(lambda_client, function_name, bucket_name, statement_id, account_id):
     lambda_client.add_permission(
         FunctionName=function_name,
@@ -18,9 +26,10 @@ def add_lambda_permission(lambda_client, function_name, bucket_name, statement_i
         SourceArn=f"arn:aws:s3:::{bucket_name}",
         SourceAccount=account_id,
     )
+    print(f"Added permission with StatementId {statement_id}")
 
 
-def update_s3_notification(s3_client, bucket_name, new_config, profile):
+def update_s3_notification(s3_client, bucket_name, new_config):
     current_config = s3_client.get_bucket_notification_configuration(Bucket=bucket_name)
 
     # Remove ResponseMetadata from current configuration
@@ -49,6 +58,7 @@ def main(env, input_bucket_name, profile):
     lambda_events = [
         ("s3-copy-lambda-{}".format(env), "{}-{}".format(input_bucket_name, env), "input/", ".json"),
         ("s3-copy-lambda2-{}".format(env), "{}-{}".format(input_bucket_name, env), "/prefix/", ".tsv.gz"),
+        ("s3-copy-lambda2-{}".format(env), "{}-{}".format(input_bucket_name, env), "/prefix2/", "*.tsv.gz"),
     ]
 
     # Clear existing notification configuration to avoid conflicts
@@ -63,9 +73,13 @@ def main(env, input_bucket_name, profile):
         lambda_arn = get_lambda_arn(lambda_client, lambda_function_name)
         print(f"Lambda Function ARN: {lambda_arn}")
 
-        statement_id = f"{lambda_function_name}-{int(time.time())}"
+        statement_id = f"{lambda_function_name}-s3-invoke"
+
+        # Remove existing permission if exists
+        remove_existing_permission(lambda_client, lambda_function_name, statement_id)
+
+        # Add new permission
         add_lambda_permission(lambda_client, lambda_function_name, bucket_name, statement_id, account_id)
-        print("Permission added successfully")
 
         new_notification_config = {
             "LambdaFunctionArn": lambda_arn,
