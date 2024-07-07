@@ -85,11 +85,17 @@ def create_s3_trigger(env, s3_client, lambda_client, account_id, lambda_events, 
     s3_client.put_bucket_notification_configuration(Bucket=f"{input_bucket_name}-{env}", NotificationConfiguration={})
     s3_client.put_bucket_notification_configuration(Bucket=COMMON_BUCKET_NAME, NotificationConfiguration={})
 
-    for lambda_function_name, bucket_name, s3_prefix, s3_suffix in lambda_events:
-        print(f"Lambda Function Name: {lambda_function_name}")
-        print(f"Input Bucket Name: {bucket_name}")
-        print(f"S3 Prefix: {s3_prefix}")
-        print(f"S3 Suffix: {s3_suffix}")
+    for event in lambda_events:
+        lambda_function_name = event["function_name"].replace("{env}", env)
+        bucket_name = event["bucket_name"].replace("{input_bucket_name}", input_bucket_name).replace("{env}", env)
+        s3_prefix = event["s3_prefix"]
+        s3_suffix = event["s3_suffix"]
+        print({
+            "lambda_function_name": lambda_function_name,
+            "bucket_name": bucket_name,
+            "s3_prefix": s3_prefix,
+            "s3_suffix": s3_suffix
+        })
 
         lambda_arn = get_lambda_arn(lambda_client, lambda_function_name)
         print(f"Lambda Function ARN: {lambda_arn}")
@@ -115,14 +121,11 @@ def main(env, input_bucket_name, profile):
 
     account_id = sts_client.get_caller_identity()["Account"]
 
-    # TODO: ここは設定ファイルから読み込むようにすると処理を切り分けやすくなる
-    lambda_events = [
-        (f"s3-copy-lambda-{env}", f"{input_bucket_name}-{env}", "input/", ".json"),
-        (f"s3-copy-lambda2-{env}", f"{input_bucket_name}-{env}", "prefix/", ".tsv.gz"),
-        (f"s3-copy-lambda-{env}", COMMON_BUCKET_NAME, "input/", ".tsv.gz"),
-        (f"s3-copy-lambda2-{env}", COMMON_BUCKET_NAME, "input2/", "*.tsv.gz"),
-    ]
+    # Load configuration from JSON file
+    with open("./config/conf.json", "r") as f:
+        config = json.load(f)
 
+    lambda_events = config["lambda_events"]
     create_s3_trigger(env, s3_client, lambda_client, account_id, lambda_events, input_bucket_name)
 
 
