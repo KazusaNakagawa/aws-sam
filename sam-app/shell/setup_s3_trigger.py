@@ -1,7 +1,7 @@
 import boto3
 import json
 import sys
-from datetime import datetime
+import time
 
 
 def get_lambda_arn(lambda_client, function_name):
@@ -20,7 +20,7 @@ def add_lambda_permission(lambda_client, function_name, bucket_name, statement_i
     )
 
 
-def update_s3_notification(s3_client, bucket_name, new_config):
+def update_s3_notification(s3_client, bucket_name, new_config, profile):
     current_config = s3_client.get_bucket_notification_configuration(Bucket=bucket_name)
 
     # Remove ResponseMetadata from current configuration
@@ -34,7 +34,11 @@ def update_s3_notification(s3_client, bucket_name, new_config):
     s3_client.put_bucket_notification_configuration(Bucket=bucket_name, NotificationConfiguration=current_config)
 
 
-def main(env, input_bucket_name, lambda_function_name, s3_prefix, s3_suffix, profile):
+def clear_s3_notification(s3_client, bucket_name):
+    s3_client.put_bucket_notification_configuration(Bucket=bucket_name, NotificationConfiguration={})
+
+
+def main(env, input_bucket_name, profile):
     session = boto3.Session(profile_name=profile)
     lambda_client = session.client("lambda")
     s3_client = session.client("s3")
@@ -42,32 +46,63 @@ def main(env, input_bucket_name, lambda_function_name, s3_prefix, s3_suffix, pro
 
     account_id = sts_client.get_caller_identity()["Account"]
 
-    lambda_arn = get_lambda_arn(lambda_client, lambda_function_name)
-    print(f"Lambda Function ARN: {lambda_arn}")
+    lambda_events = [
+        ("s3-copy-lambda-{}".format(env), "{}-{}".format(input_bucket_name, env), "input/", ".json"),
+        ("s3-copy-lambda2-{}".format(env), "{}-{}".format(input_bucket_name, env), "/prefix/", ".tsv.gz"),
+    ]
 
-    statement_id = f"{lambda_function_name}-{int(datetime.now().timestamp())}"
-    add_lambda_permission(lambda_client, lambda_function_name, input_bucket_name, statement_id, account_id)
-    print("Permission added successfully")
+    # Clear existing notification configuration to avoid conflicts
+    clear_s3_notification(s3_client, "{}-{}".format(input_bucket_name, env))
 
-    new_notification_config = {
-        "LambdaFunctionArn": lambda_arn,
-        "Events": ["s3:ObjectCreated:*"],
-        "Filter": {"Key": {"FilterRules": [{"Name": "prefix", "Value": s3_prefix}]}},
-    }
+    for lambda_function_name, bucket_name, s3_prefix, s3_suffix in lambda_events:
+        print(f"Lambda Function Name: {lambda_function_name}")
+        print(f"Input Bucket Name: {bucket_name}")
+        print(f"S3 Prefix: {s3_prefix}")
+        print(f"S3 Suffix: {s3_suffix}")
 
-    if s3_suffix:
-        new_notification_config["Filter"]["Key"]["FilterRules"].append({"Name": "suffix", "Value": s3_suffix})
+        lambda_arn = get_lambda_arn(lambda_client, lambda_function_name)
+        print(f"Lambda Function ARN: {lambda_arn}")
 
-    update_s3_notification(s3_client, input_bucket_name, new_notification_config)
-    print("S3 Notification Configuration updated successfully")
+        statement_id = f"{lambda_function_name}-{int(time.time())}"
+        add_lambda_permission(lambda_client, lambda_function_name, bucket_name, statement_id, account_id)
+        print("Permission added successfully")
+
+        new_notification_config = {
+            "LambdaFunctionArn": lambda_arn,
+            "Events": ["s3:ObjectCreated:*"],
+            "Filter": {"Key": {"FilterRules": [{"Name": "prefix", "Value": s3_prefix}]}},
+        }
+
+        if s3_suffix:
+            new_notification_config["Filter"]["Key"]["FilterRules"].append({"Name": "suffix", "Value": s3_suffix})
+
+        print(f"New Notification Configuration: {json.dumps(new_notification_config, indent=2)}")
+
+        current_notification_config = s3_client.get_bucket_notification_configuration(Bucket=bucket_name)
+
+        # Remove ResponseMetadata from current configuration
+        current_notification_config.pop("ResponseMetadata", None)
+
+        if "LambdaFunctionConfigurations" not in current_notification_config:
+            current_notification_config["LambdaFunctionConfigurations"] = []
+
+        current_notification_config["LambdaFunctionConfigurations"].append(new_notification_config)
+
+        updated_notification_config = json.dumps(current_notification_config)
+
+        print(f"Updated Notification Configuration: {updated_notification_config}")
+
+        s3_client.put_bucket_notification_configuration(
+            Bucket=bucket_name, NotificationConfiguration=current_notification_config
+        )
+
+        print(f"Successfully configured S3 trigger for Lambda function {lambda_function_name}.")
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 7:
-        print(
-            "Usage: python setup_s3_trigger.py <env> <input_bucket_name> <lambda_function_name> <s3_prefix> <s3_suffix> <profile>"
-        )
+    if len(sys.argv) != 4:
+        print("Usage: python setup_s3_trigger.py <env> <input_bucket_name> <profile>")
         sys.exit(1)
 
-    env, input_bucket_name, lambda_function_name, s3_prefix, s3_suffix, profile = sys.argv[1:]
-    main(env, input_bucket_name, lambda_function_name, s3_prefix, s3_suffix, profile)
+    env, input_bucket_name, profile = sys.argv[1:]
+    main(env, input_bucket_name, profile)
