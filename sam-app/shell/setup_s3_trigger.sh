@@ -4,7 +4,6 @@
 # Example: 
 #   ./setup_s3_trigger.sh dev my-input-bucket Admin
 
-
 # Check if environment argument is provided
 if [ -z "$1" ]; then
   echo "Environment argument is required."
@@ -18,7 +17,8 @@ PROFILE=$3
 
 LAMBDA_EVENTS=(
   "s3-copy-lambda-${ENV}" "${INPUT_BUCKET_NAME}-${ENV}" "input/" ".json"
-  "s3-copy-lambda2-${ENV}" "${INPUT_BUCKET_NAME}-${ENV}" "/prefix/" ".tsv.gz"
+  "s3-copy-lambda2-${ENV}" "${INPUT_BUCKET_NAME}-${ENV}" "prefix/" ".tsv.gz"
+  "s3-copy-lambda2-${ENV}" "${INPUT_BUCKET_NAME}-${ENV}" "prefix2/" "*.tsv.gz"
 )
 
 # 配列の要素数
@@ -53,8 +53,11 @@ for ((i=0; i<$NUM_ELEMENTS; i+=$ELEMENTS_PER_TUPLE)); do
 
   echo "Lambda Function ARN: ${LAMBDA_FUNCTION_ARN}"
 
-  # Generate a unique statement ID using timestamp and lambda function name
-  STATEMENT_ID="${LAMBDA_FUNCTION_NAME}-$(date +%s)"
+  # Generate a unique statement ID
+  STATEMENT_ID="${LAMBDA_FUNCTION_NAME}-s3-invoke"
+
+  # Remove existing permission if exists
+  aws lambda remove-permission --function-name ${LAMBDA_FUNCTION_NAME} --statement-id ${STATEMENT_ID} --profile ${PROFILE}
 
   # Add permission for S3 to invoke the Lambda function
   aws lambda add-permission --function-name ${LAMBDA_FUNCTION_NAME} \
@@ -106,7 +109,6 @@ EOF
   echo "New Notification Configuration: ${NEW_NOTIFICATION_CONFIGURATION}"
 
   # 現在のS3バケット通知設定を取得
-  # aws s3api get-bucket-notification-configuration --bucket s3-copy-source-bucket-dev --profile Admin
   CURRENT_NOTIFICATION_CONFIGURATION=$(aws s3api get-bucket-notification-configuration --bucket ${INPUT_BUCKET_NAME} --profile ${PROFILE})
 
   # 通知設定が存在しない場合は、空の通知設定を作成
