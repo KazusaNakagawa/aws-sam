@@ -1,0 +1,28 @@
+{
+  "lambda_events": [
+    {
+      "function_name": "s3-copy-lambda-{env}",
+      "bucket_name": "{input_bucket_name}-{env}",
+      "s3_prefix": "input/",
+      "s3_suffix": ".json"
+    },
+    {
+      "function_name": "s3-copy-lambda2-{env}",
+      "bucket_name": "{input_bucket_name}-{env}",
+      "s3_prefix": "prefix/",
+      "s3_suffix": ".tsv.gz"
+    },
+    {
+      "function_name": "s3-copy-lambda-{env}",
+      "bucket_name": "s3-copy-input-bucket-common",
+      "s3_prefix": "input/",
+      "s3_suffix": ".tsv.gz"
+    },
+    {
+      "function_name": "s3-copy-lambda2-{env}",
+      "bucket_name": "s3-copy-input-bucket-common",
+      "s3_prefix": "input2/",
+      "s3_suffix": "*.tsv.gz"
+    }
+  ]
+}
