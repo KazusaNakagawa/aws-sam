@@ -2,6 +2,8 @@ import json
 import boto3
 import os
 
+TARGET_CONFIG = "./config/target.json"
+
 s3 = boto3.client("s3")
 
 
@@ -9,7 +11,7 @@ def get_target_key(prefix: str):
     """jsonファイルから取得したtarget_prefixを返す"""
     import datetime
 
-    with open("./config/target.json") as f:
+    with open(TARGET_CONFIG) as f:
         config = json.load(f)
         target_prefix = config["target_prefix"][prefix]
         today = datetime.datetime.now().strftime("%Y/%m/%d")
